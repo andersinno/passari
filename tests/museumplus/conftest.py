@@ -8,6 +8,7 @@ from threading import Event, Thread
 import aiohttp
 import lxml.etree
 import pytest
+import pytest_asyncio
 
 
 @pytest.fixture(scope="function")
@@ -200,11 +201,10 @@ def mock_museumplus(launch_mock_museumplus):
     )
 
 
-@pytest.fixture(scope="function")
+@pytest_asyncio.fixture(scope="function")
 async def museum_session():
-    session = aiohttp.ClientSession()
-    yield session
-    await session.close()
+    async with aiohttp.ClientSession() as session:
+        yield session
 
 
 @pytest.fixture(scope="function")

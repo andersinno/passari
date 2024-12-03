@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+import pytest_asyncio
 
 
 @pytest.fixture(scope="function")
@@ -11,7 +12,7 @@ def package_dir(tmpdir):
     return package_dir
 
 
-@pytest.fixture(scope="function")
+@pytest_asyncio.fixture(scope="function")
 @pytest.mark.asyncio
 async def museum_package_factory(
         load_museum_object, mock_museumplus, package_dir):
@@ -25,7 +26,7 @@ async def museum_package_factory(
     return func
 
 
-@pytest.fixture(scope="function")
+@pytest_asyncio.fixture(scope="function")
 @pytest.mark.asyncio
 async def museum_package(museum_package_factory):
     return await museum_package_factory("1234567")
