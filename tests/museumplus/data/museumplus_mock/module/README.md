@@ -29,7 +29,7 @@ There are currently test files for the following fake objects:
 * Object 1234579
   * is linked to collection activities 765432001 and 765432002
 * Object 1234580
-  * has attachment 1234580001 (test.TIF) which will raise a PreservationError due to being a multi-page TIFF
+  * has attachment 1234580001 (test.TIF) which is a multi-page TIFF
 * Object 1234581
   * has attachment 1234581001 (test.JPG) which will raise a PreservationError due to being a MPO/JPEG image file
 * Object 1234582
