@@ -44,38 +44,6 @@ class JHOVEInvalidTIFFError(ErrorDetector):
             )
 
 
-class MultiPageTIFFError(ErrorDetector):
-    """
-    Raise a PreservationError if multi-page TIFF fails validation.
-    Multi-page TIFFs are not currently supported by the DPRES service.
-    """
-    def check(self, exc):
-        if exc.cmd[0] != "import-object":
-            return
-
-        file_path = exc.cmd[-1]
-        file_ext = file_path.split(".")[-1].lower()
-
-        if file_ext not in ("tif", "tiff"):
-            return
-
-        stderr = exc.stderr.decode("utf-8")
-
-        is_multipage = (
-            "The file contains multiple streams which is supported only for "
-            "video containers." in stderr
-        )
-
-        if is_multipage:
-            raise PreservationError(
-                detail=(
-                    f"TIFF file {exc.cmd[-1]} contains multiple pages and is "
-                    f"not currently allowed for preservation."
-                ),
-                error="Multi-page TIFF not allowed"
-            )
-
-
 class JPEGMIMETypeError(ErrorDetector):
     """
     Raise a PreservationError if MIME type for JPEG isn't detected correctly
@@ -124,8 +92,7 @@ class JPEGMPONotSupportedError(ErrorDetector):
         stderr = exc.stderr.decode("utf-8")
 
         mpo_found = (
-            "Conflict with existing value 'image/jpeg' and new value "
-            "'image/mpo'"
+            "Conflict with values 'image/jpeg' and 'image/mpo' for 'mimetype'"
         ) in stderr
 
         if mpo_found:
@@ -175,7 +142,7 @@ class JPEGVersionNotSupportedError(ErrorDetector):
 
 
 ERROR_DETECTORS = (
-    JHOVEInvalidTIFFError, MultiPageTIFFError, JPEGMIMETypeError,
+    JHOVEInvalidTIFFError, JPEGMIMETypeError,
     JPEGMPONotSupportedError, JPEGVersionNotSupportedError
 )
 

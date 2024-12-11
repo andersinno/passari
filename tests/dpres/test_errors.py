@@ -65,21 +65,6 @@ async def test_generate_sip_invalid_tiff_jhove(
 
 
 @pytest.mark.asyncio
-async def test_generate_sip_multipage_tiff_not_allowed(
-        package_dir, museum_package_factory):
-    """
-    Test generating a SIP containing a multi-page TIFF which is not
-    allowed in the DPRES service
-    """
-    museum_package = await museum_package_factory("1234580")
-
-    with pytest.raises(PreservationError) as exc:
-        await museum_package.generate_sip()
-
-    assert "Multi-page TIFF not allowed" == exc.value.error
-
-
-@pytest.mark.asyncio
 async def test_generate_sip_jpeg_mime_type_not_detected(
         package_dir, museum_package_factory, monkeypatch):
     """
