@@ -92,8 +92,7 @@ class JPEGMPONotSupportedError(ErrorDetector):
         stderr = exc.stderr.decode("utf-8")
 
         mpo_found = (
-            "Conflict with existing value 'image/jpeg' and new value "
-            "'image/mpo'"
+            "Conflict with values 'image/jpeg' and 'image/mpo' for 'mimetype'"
         ) in stderr
 
         if mpo_found:
