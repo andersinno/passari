@@ -5,9 +5,9 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from passari.config import CONFIG
-from tests.dpres.conftest import *
-from tests.museumplus.conftest import *
+
+from tests.dpres.conftest import *  # noqa: F401, F403
+from tests.museumplus.conftest import *  # noqa: F401, F403
 
 
 def pytest_addoption(parser):
@@ -24,7 +24,11 @@ def pytest_collection_modifyitems(config, items):
     if config.getoption("--slow"):
         return
 
-    skip_slow = pytest.mark.skip(reason="run slow tests with --slow")
+    skip_slow = pytest.mark.skipif(
+        "os.getenv('RUN_SLOW_TESTS') in {None, '', '0'}",
+        reason="run slow tests with --slow or RUN_SLOW_TESTS=1 env var",
+    )
+
     for item in items:
         if "slow" in item.keywords:
             item.add_marker(skip_slow)
