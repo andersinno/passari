@@ -49,3 +49,6 @@ confirm-sip = "passari.scripts.confirm_sip:cli"
 
 [tool.setuptools_scm]
 fallback_version = "0.0.0"
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"

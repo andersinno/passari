@@ -46,7 +46,7 @@ async def test_iterate_objects(museum_session, mock_museumplus):
     search_xml = lxml.etree.fromstring(search_request)
 
     # Search request did *not* filter the results by default
-    assert search_xml.find(f".//{{{ZETCOM_SEARCH_NS}}}sort")
+    assert search_xml.find(f".//{{{ZETCOM_SEARCH_NS}}}sort") is not None
     assert len(search_xml.findall(f".//{{{ZETCOM_SEARCH_NS}}}expert")) == 0
 
 
@@ -77,7 +77,7 @@ async def test_iterate_objects_filter_modification_date(
     search_xml = lxml.etree.fromstring(search_request)
 
     # Search request did *not* filter the results by default
-    assert search_xml.find(f".//{{{ZETCOM_SEARCH_NS}}}sort")
+    assert search_xml.find(f".//{{{ZETCOM_SEARCH_NS}}}sort") is not None
     expert_elem = search_xml.find(f".//{{{ZETCOM_SEARCH_NS}}}expert")
 
     assert expert_elem.attrib["module"] == "Object"

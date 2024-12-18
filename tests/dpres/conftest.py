@@ -13,7 +13,6 @@ def package_dir(tmpdir):
 
 
 @pytest_asyncio.fixture(scope="function")
-@pytest.mark.asyncio
 async def museum_package_factory(
         load_museum_object, mock_museumplus, package_dir):
     async def func(object_id, sip_id=None):
@@ -27,6 +26,5 @@ async def museum_package_factory(
 
 
 @pytest_asyncio.fixture(scope="function")
-@pytest.mark.asyncio
 async def museum_package(museum_package_factory):
     return await museum_package_factory("1234567")

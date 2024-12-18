@@ -3,7 +3,7 @@ import time
 from pathlib import Path
 from urllib.parse import urlparse
 
-from pkg_resources import DistributionNotFound, get_distribution
+from importlib.metadata import PackageNotFoundError, version
 
 import aiohttp
 from filelock import FileLock
@@ -17,8 +17,8 @@ from passari.utils import retrieve_xml
 SESSION_KEY_REGENERATE_TIMEOUT = 600
 
 try:
-    PASSARI_VERSION = get_distribution("passari").version
-except DistributionNotFound:
+    PASSARI_VERSION = version("passari")
+except PackageNotFoundError:
     PASSARI_VERSION = "unknown"
 
 
