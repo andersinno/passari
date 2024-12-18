@@ -30,8 +30,10 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "ruff",
-    "ipython",
+    "pillow",
+    "pytest",
+    "pytest-asyncio",
+    "sftpserver",
 ]
 docs = ["sphinxcontrib-apidoc"]
 
