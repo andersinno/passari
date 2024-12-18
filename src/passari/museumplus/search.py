@@ -308,7 +308,7 @@ async def iterate_multimedia(
 
 
 async def iterate_objects(
-        session, offset: int = 0, limit: int = 50, modify_date_gte=None):
+        session, offset: int = 0, limit: int = 500, modify_date_gte=None):
     """
     Iterate all the Object modules in the MuseumPlus database starting from
     the given offset
