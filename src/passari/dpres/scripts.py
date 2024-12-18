@@ -4,15 +4,15 @@ import os
 from pathlib import Path
 from subprocess import CalledProcessError
 
-from pkg_resources import DistributionNotFound, get_distribution
+from importlib.metadata import PackageNotFoundError, version
 
 import aiofiles
 from passari.config import CONFIG
 from passari.logger import logger
 
 try:
-    PASSARI_VERSION = get_distribution("passari").version
-except DistributionNotFound:
+    PASSARI_VERSION = version("passari")
+except PackageNotFoundError:
     PASSARI_VERSION = "unknown"
 
 
