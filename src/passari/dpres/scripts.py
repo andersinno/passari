@@ -61,6 +61,8 @@ async def run_command(
             await file_.write(
                 f"\n===COMMAND===\n{now.isoformat()}\n{cmd}".encode("utf-8")
             )
+            await file_.write(b"\n===CWD===\n")
+            await file_.write((cwd or os.getcwd()).encode("utf-8"))
             await file_.write(b"\n===STDOUT===\n")
             await file_.write(stdout)
             await file_.write(b"\n===STDERR===\n")
