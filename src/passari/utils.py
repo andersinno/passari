@@ -126,8 +126,9 @@ def unix_timestamp_to_datetime(timestamp: int):
     """
     timestamp = int(timestamp)
 
-    date = datetime.datetime.utcfromtimestamp(timestamp)
-    date.replace(tzinfo=datetime.timezone.utc)
+    date = datetime.datetime.fromtimestamp(
+        timestamp, tz=datetime.timezone.utc
+    )
 
     return date
 
