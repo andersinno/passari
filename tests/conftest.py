@@ -66,14 +66,14 @@ def museum_package_dir(museum_packages_dir):
     package_dir_ = museum_packages_dir / "1234567"
 
     package_dir_.mkdir()
-    package_dir_.joinpath("sip").mkdir()
-    package_dir_.joinpath("sip", "reports").mkdir()
+    package_dir_.joinpath("data").mkdir()
+    package_dir_.joinpath("data", "reports").mkdir()
 
     shutil.copyfile(
         Path(__file__).parent.resolve()
         / "museumplus" / "data" / "museumplus_mock" / "module" / "Object"
         / "1234567.xml",
-        package_dir_ / "sip" / "reports" / "Object.xml"
+        package_dir_ / "data" / "reports" / "Object.xml"
     )
 
     return package_dir_

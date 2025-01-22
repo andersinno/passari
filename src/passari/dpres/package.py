@@ -565,7 +565,7 @@ class MuseumObjectPackage:
         """
         Path to the directory containing the SIP contents
         """
-        return self.path / "sip"
+        return self.path / "data"
 
     @property
     def report_dir(self):
