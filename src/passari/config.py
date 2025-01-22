@@ -80,13 +80,6 @@ object_preservation_field_type='dataField'
 add_log_entries=true
 username=''
 password=''
-
-[dpres]
-# Virtualenv settings for dpres-siptools.
-# These allow dpres-siptools to be installed separately
-# from passari.
-use_virtualenv=false
-virtualenv_path=''
 """
 
 CONFIG = toml.loads(

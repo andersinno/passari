@@ -56,13 +56,6 @@ The contents of the file should look like this:
    username=''
    password=''
 
-   [dpres]
-   # Virtualenv settings for dpres-siptools.
-   # These allow dpres-siptools to be installed separately
-   # from passari.
-   use_virtualenv=false
-   virtualenv_path=''
-
 
 MuseumPlus account
 ------------------
@@ -95,5 +88,3 @@ Parameters
 - ``museumplus/add_log_entries`` - whether to add log entries to the field defined in `museumplus/object_preservation_field_name`
 - ``museumplus/username`` - MuseumPlus username
 - ``museumplus/password`` - MuseumPlus password
-- ``dpres/use_virtualenv`` - whether to use a different virtualenv for running `dpres-siptools` commands. This is required if the tools are not installed in the same virtualenv. At the time of writing, this is due to *dpres-siptools* having support for Python 2.7 while *Passari* is written for Python 3.6.
-- ``dpres/virtualenv_path`` - path to the virtualenv containing the `dpres-siptools` installation, if enabled.
