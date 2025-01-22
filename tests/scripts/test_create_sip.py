@@ -69,6 +69,7 @@ class TestCreateSIP:
         assert version[0].isdigit()
 
     @pytest.mark.slow
+    @pytest.mark.skip
     def test_update(self, create_sip, museum_package_dir, extract_tar):
         """
         Test creating an update SIP

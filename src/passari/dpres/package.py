@@ -8,14 +8,25 @@ from pathlib import Path
 import lxml.etree
 
 import aiofiles
+
+from mets_builder import (
+    METS,
+    MetsProfile,
+)
+from mets_builder.metadata import (
+    DigitalProvenanceAgentMetadata,
+    DigitalProvenanceEventMetadata,
+    ImportedMetadata,
+    MetadataFormat,
+    MetadataType,
+)
+from siptools_ng.file import File
+from siptools_ng.sip import SIP
+
 from passari.config import (CONTRACT_ID, LIDO_REPORT_ID, MUSEUMPLUS_URL,
                             ORGANIZATION_NAME, SIGN_KEY_PATH)
-from passari.dpres.errors import raise_for_preservation_error
-from passari.dpres.events import get_premis_events
-from passari.dpres.scripts import (add_premis_event, compile_mets,
-                                   compile_structmap, compress, create_mix,
-                                   extract_archive, import_description,
-                                   import_object, sign_mets)
+from passari.dpres.events import PremisEvent, get_premis_events
+from passari.dpres.scripts import extract_archive
 from passari.exceptions import PreservationError
 from passari.logger import logger
 from passari.museumplus.connection import get_museum_session
@@ -88,6 +99,12 @@ class MuseumObjectPackage:
 
         self.museum_object = museum_object
         self.sip_id = sip_id
+
+        self.sip_agent_md = DigitalProvenanceAgentMetadata(
+            name="passari",
+            agent_type="software",
+            version="0.0.0"
+        )
 
     @classmethod
     async def from_path(self, path, sip_id=None):
@@ -659,137 +676,126 @@ class MuseumObjectPackage:
         os.remove(file_path)
         os.rename(destination_path, file_path)
 
-        # Add an extraction event
-        await add_premis_event(
-            base_path=self.sip_dir,
-            workspace_path=self.workspace_dir,
-            event_type="decompression",
-            event_datetime=datetime.datetime.now(datetime.timezone.utc),
-            event_detail="Archive extraction",
-            event_outcome_detail=(
-                f"Extracted from original archive {file_path.name} downloaded "
-                "from MuseumPlus"
-            ),
-            event_outcome="success",
-            event_target=file_path.relative_to(self.sip_dir),
-            log_path=self.log_dir / "premis-event.log"
+    def create_mets(self, create_date: datetime) -> METS:
+        """
+        Create the base METS object for the SIP using dpres-mets-builder
+
+        https://digital-preservation-finland.github.io/dpres-mets-builder/usage.html
+        """
+        return METS(
+            mets_profile=MetsProfile.CULTURAL_HERITAGE,
+            contract_id=CONTRACT_ID,
+            creator_name=ORGANIZATION_NAME,
+            creator_type="ORGANIZATION",
+            content_id=self.contentid,
+            package_id=self.objid,
+            create_date=create_date
         )
 
-    async def import_object(self, file_path, identifier_value=None):
+    def add_premis_object_identifier(self, file: File, identifier: str):
         """
-        Import a single object
+        Add objectIdentifierType and objectIdentifierValue to the
+        technical metadata of a PREMIS file object.
         """
         try:
-            await import_object(
-                base_path=self.sip_dir,
-                workspace_path=self.workspace_dir,
-                path=file_path.relative_to(self.sip_dir),
-                identifier_value=identifier_value,
-                identifier_type="museumplus",
-                log_path=self.log_dir / "import-object.log",
+            tech_md = next(
+                metadata for metadata in file.metadata
+                if metadata.metadata_type.value == "technical"
+                and metadata.metadata_format.value == "PREMIS:OBJECT"
             )
-        except subprocess.CalledProcessError as exc:
-            # Raise PreservationError instead if the issue is known
-            raise_for_preservation_error(exc)
-            raise
+        except StopIteration:
+            raise ValueError(
+                f"No technical metadata with format 'PREMIS:OBJECT' found in file "
+                f"'{file.digital_object_path}'."
+            )
+        tech_md.object_identifier_type = "museumplus"
+        tech_md.object_identifier = identifier
 
-    async def create_mix(self, file_path):
+    def create_sip_from_data_dir(self, mets: METS) -> SIP:
         """
-        Create MIX data for an image file
+        Create the SIP from the data directory.
+
+        dpres-siptools-ng generates the structmap and
+        technical metadata for each file automatically.
         """
-        await create_mix(
-            base_path=self.sip_dir,
-            workspace_path=self.workspace_dir,
-            path=file_path.relative_to(self.sip_dir),
-            log_path=self.log_dir / "create-mix.log"
+        dir_path = Path(self.sip_dir)
+
+        if not dir_path.exists():
+            raise ValueError(f"Path '{str(dir_path)}' does not exist.")
+        if not dir_path.is_dir():
+            raise ValueError(
+                f"Path '{str(dir_path)}' is not a directory."
+            )
+
+        files = []
+        for identifier, file_path in self.iterate_files_to_import():
+            if file_path.is_file():
+                file = File(
+                    path=file_path,
+                    digital_object_path=file_path.relative_to(dir_path.parent),
+                )
+                file.generate_technical_metadata()
+                # Add object identifier to the technical metadata
+                self.add_premis_object_identifier(file, identifier)
+                files.append(file)
+
+        return SIP.from_files(mets=mets, files=files)
+
+    def add_dmd_to_sip(self, sip: SIP):
+        """
+        Create the descriptive metadata from lido.xml and
+        add it to the SIP (the METS document).
+
+        dres-siptools-ng will create a PREMIS event for this.
+        """
+        dmd = ImportedMetadata(
+            metadata_type=MetadataType.DESCRIPTIVE,
+            metadata_format=MetadataFormat.LIDO,
+            format_version="1.1",
+            data_path=self.report_dir / "lido.xml"
         )
+        sip.add_metadata([dmd])
 
-    async def create_provenance_metadata(self):
+    def add_premis_events_to_sip(self, sip, files_extracted):
         """
-        Create provenance metadata detailing the museum object's creation
+        Create the provenance metadata for the PREMIS events
+        and add them to the SIP (METS document). If any archives
+        were extracted, add an event for that too.
+
+        The Passari PREMIS agent metadata is linked to
+        each event and doesn't need to be added explicitly.
         """
         events = get_premis_events(museum_package=self)
 
-        for event in events:
-            await add_premis_event(
-                base_path=self.sip_dir,
-                workspace_path=self.workspace_dir,
-                event_type=event.event_type,
-                event_datetime=event.event_datetime,
-                event_detail=event.event_detail,
-                event_outcome=event.event_outcome,
-                event_target=event.event_target,
-                event_outcome_detail=event.event_outcome_detail,
-                log_path=self.log_dir / "premis-event.log"
+        if files_extracted:
+            events.append(
+                PremisEvent(
+                    event_type="decompression",
+                    event_detail="Archive extraction",
+                    event_outcome="success",
+                    event_outcome_detail=(
+                        "Extracted from original archive downloaded "
+                        "from MuseumPlus"
+                    ),
+                    event_datetime=datetime.datetime.now(
+                        datetime.timezone.utc
+                    )
+                )
             )
 
-    async def import_description(self):
-        """
-        Import LIDO metadata into the METS document
-        """
-        await import_description(
-            workspace_path=self.workspace_dir,
-            dmd_location=self.report_dir / "lido.xml",
-            log_path=self.log_dir / "import-description.log"
-        )
-
-    async def compile_sip(
-            self,
-            create_date: datetime.datetime,
-            modify_date: datetime.datetime,
-            update: bool = False):
-        """
-        Prepare the SIP for signing and compression into the final
-        submission-ready archive
-        """
-        await compile_structmap(
-            base_path=self.sip_dir,
-            workspace_path=self.workspace_dir,
-            log_path=self.log_dir / "compile-structmap.log"
-        )
-        await compile_mets(
-            base_path=self.sip_dir,
-            workspace_path=self.workspace_dir,
-            objid=self.objid,
-            contentid=self.contentid,
-            organization_name=ORGANIZATION_NAME,
-            contract_id=CONTRACT_ID,
-            log_path=self.log_dir / "compile-mets.log",
-            create_date=create_date,
-            modify_date=modify_date,
-            update=update
-        )
-
-    async def sign_mets(self):
-        """
-        Sign the METS document contained in the SIP
-        """
-        await sign_mets(
-            workspace_path=self.workspace_dir,
-            sign_key_path=SIGN_KEY_PATH,
-            log_path=self.log_dir / "sign-mets.log"
-        )
-
-    async def compress(self):
-        """
-        Compress the SIP into a single TAR archive ready for submission
-        """
-        # Move the remaining files from workspace to the SIP directory
-        # to make the SIP directory ready for compression
-        os.rename(
-            self.workspace_dir / "mets.xml",
-            self.sip_dir / "mets.xml"
-        )
-        os.rename(
-            self.workspace_dir / "signature.sig",
-            self.sip_dir / "signature.sig"
-        )
-
-        await compress(
-            path=self.sip_dir,
-            destination=self.sip_archive_path,
-            log_path=self.log_dir / "compress.log"
-        )
+        for event in events:
+            event_md = DigitalProvenanceEventMetadata(
+                event_type=event.event_type,
+                detail=event.event_detail,
+                outcome=event.event_outcome,
+                outcome_detail=event.event_outcome_detail,
+                datetime=event.event_datetime.isoformat()
+            )
+            event_md.link_agent_metadata(
+                agent_metadata=self.sip_agent_md,
+                agent_role="executing program"
+            )
+            sip.add_metadata([event_md])
 
     async def generate_sip(
             self,
@@ -797,12 +803,12 @@ class MuseumObjectPackage:
             modify_date: datetime.datetime = None,
             update: bool = False):
         """
-        Generate a SIP by following the workflow described in dpres-siptools
-        README:
+        Generate a SIP by following the guidelines described in the dpres-siptools-ng
+        documentation:
 
-        https://github.com/Digital-Preservation-Finland/dpres-siptools#usage
+        https://digital-preservation-finland.github.io/dpres-siptools-ng/examples.html
 
-        :param update: Whether to create an update SIP
+        :param update: Whether to create an update SIP. Currently this is not implemented.
         """
         if not create_date:
             create_date = datetime.datetime.now(datetime.timezone.utc)
@@ -813,39 +819,36 @@ class MuseumObjectPackage:
         self.populate_files()
 
         # Extract any archives
+        files_extracted = False
         if self.archive_files:
             for file_path in self.archive_files:
                 await self.extract_archive(file_path)
 
             # Populate the files again after extracting
             self.populate_files()
+            files_extracted = True
 
         # Check that all files can be preserved
         self.check_files()
 
-        # Import all objects
-        for identifier_value, file_path in self.iterate_files_to_import():
-            # TODO: It may be possible to import objects in parallel.
-            # Do so here, if possible.
+        # Create the base METS object
+        mets = self.create_mets(create_date)
 
-            # NOTE: lido.xml will fail here unless file-scraper has been
-            # patched to alias `application/gml+xml` to `text/xml`
-            await self.import_object(
-                file_path,
-                identifier_value=identifier_value
-            )
+        # Create the SIP from the source directory
+        sip = self.create_sip_from_data_dir(mets)
 
-        # Create MIX metadata for image files
-        for image_path in self.image_files:
-            await self.create_mix(image_path)
+        # Add descriptive metadata, i.e. the LIDO metadata into the SIP
+        self.add_dmd_to_sip(sip)
 
-        await self.create_provenance_metadata()
-        await self.import_description()
-        await self.compile_sip(
-            update=update, create_date=create_date, modify_date=modify_date
+        # Create provenance metadata for the PREMIS events and add them to the SIP
+        self.add_premis_events_to_sip(sip, files_extracted)
+
+        # Sign the METS and compress the SIP into a TAR file,
+        # making it ready for submission to PAS
+        sip.finalize(
+            output_filepath=self.sip_archive_path,
+            sign_key_filepath=SIGN_KEY_PATH
         )
-        await self.sign_mets()
-        await self.compress()
 
     attachments = property(get_attachments, set_attachments)
     collection_activities = property(
