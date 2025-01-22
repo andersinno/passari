@@ -5,6 +5,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.2] - 2024-01-22
+### Changed
+ - Migrate from dpres-siptools to dpres-siptools-ng
+
+### Removed
+ - Raise PreservationError for MPO/JPEG files.
+ - Raise PreservationError for unsupported JPEG versions.
+
 ## [1.1] - 2020-08-04
 ### Added
  - Raise PreservationError for MPO/JPEG files.
