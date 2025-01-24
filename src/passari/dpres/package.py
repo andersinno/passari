@@ -12,6 +12,7 @@ import aiofiles
 from mets_builder import (
     METS,
     MetsProfile,
+    MetsRecordStatus,
 )
 from mets_builder.metadata import (
     DigitalProvenanceAgentMetadata,
@@ -676,7 +677,12 @@ class MuseumObjectPackage:
         os.remove(file_path)
         os.rename(destination_path, file_path)
 
-    def create_mets(self, create_date: datetime) -> METS:
+    def create_mets(
+        self,
+        create_date: datetime,
+        modify_date: datetime,
+        update: bool
+    ) -> METS:
         """
         Create the base METS object for the SIP using dpres-mets-builder
 
@@ -689,7 +695,11 @@ class MuseumObjectPackage:
             creator_type="ORGANIZATION",
             content_id=self.contentid,
             package_id=self.objid,
-            create_date=create_date
+            create_date=create_date,
+            last_mod_date=modify_date,
+            record_status=(
+                MetsRecordStatus.UPDATE if update else MetsRecordStatus.SUBMISSION
+            )
         )
 
     def add_premis_object_identifier(self, file: File, identifier: str):
@@ -808,7 +818,7 @@ class MuseumObjectPackage:
 
         https://digital-preservation-finland.github.io/dpres-siptools-ng/examples.html
 
-        :param update: Whether to create an update SIP. Currently this is not implemented.
+        :param update: Whether to create an update SIP.
         """
         if not create_date:
             create_date = datetime.datetime.now(datetime.timezone.utc)
@@ -832,7 +842,7 @@ class MuseumObjectPackage:
         self.check_files()
 
         # Create the base METS object
-        mets = self.create_mets(create_date)
+        mets = self.create_mets(create_date, modify_date, update)
 
         # Create the SIP from the source directory
         sip = self.create_sip_from_data_dir(mets)
