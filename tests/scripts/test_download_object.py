@@ -34,12 +34,12 @@ class TestDownloadObject:
         package_dir = museum_packages_dir / "1234567"
         assert package_dir.is_dir()
 
-        assert (package_dir / "sip" / "attachments").is_dir()
+        assert (package_dir / "data" / "attachments").is_dir()
 
-        assert (package_dir / "sip" / "reports").is_dir()
-        assert (package_dir / "sip" / "reports" / "Object.xml").is_file()
+        assert (package_dir / "data" / "reports").is_dir()
+        assert (package_dir / "data" / "reports" / "Object.xml").is_file()
 
-        attachment_dir = package_dir / "sip" / "attachments"
+        attachment_dir = package_dir / "data" / "attachments"
 
         assert (attachment_dir / "1234567001" / "kuva1.JPG").is_file()
         assert (attachment_dir / "1234567001" / "Multimedia.xml").is_file()
@@ -60,10 +60,10 @@ class TestDownloadObject:
         package_dir = museum_packages_dir / "1234568"
         assert package_dir.is_dir()
 
-        assert package_dir.joinpath("sip", "reports").is_dir()
-        assert (package_dir / "sip" / "reports" / "Object.xml").is_file()
+        assert package_dir.joinpath("data", "reports").is_dir()
+        assert (package_dir / "data" / "reports" / "Object.xml").is_file()
 
-        assert not package_dir.joinpath("sip", "attachments").is_dir()
+        assert not package_dir.joinpath("data", "attachments").is_dir()
 
     def test_success_empty_attachment(
             self, download_object, museum_packages_dir):
@@ -79,10 +79,10 @@ class TestDownloadObject:
         package_dir = museum_packages_dir / "1234573"
         assert package_dir.is_dir()
 
-        assert package_dir.joinpath("sip", "attachments").is_dir()
+        assert package_dir.joinpath("data", "attachments").is_dir()
 
         # Only "Multimedia.xml" is added
-        files = package_dir / "sip" / "attachments" / "1234573001"
+        files = package_dir / "data" / "attachments" / "1234573001"
         assert len(list(files.iterdir())) == 1
         assert next(files.iterdir()).name == "Multimedia.xml"
 

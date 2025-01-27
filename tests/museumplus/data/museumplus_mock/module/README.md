@@ -23,7 +23,7 @@ There are currently test files for the following fake objects:
 * Object 1234576
   * has attachment 1234576001 (test.JPG) which will raise a PreservationError (for now) due to insufficient JPEG version detection support
 * Object 1234577
-  * has attachment 1234577001 (test.TIF) which will raise a PreservationError due to being detected as invalid by JHOVE
+  * has attachment 1234577001 (test.TIF) which will raise an error during the SIP creation due to missing technical metadata
 * Object 1234578
   * has barebones Object document with only systemField entries. Trying to download this will trigger an exception.
 * Object 1234579
@@ -31,7 +31,7 @@ There are currently test files for the following fake objects:
 * Object 1234580
   * has attachment 1234580001 (test.TIF) which is a multi-page TIFF
 * Object 1234581
-  * has attachment 1234581001 (test.JPG) which will raise a PreservationError due to being a MPO/JPEG image file
+  * has attachment 1234581001 (test.JPG) which will raise a an error during the SIP creation due to missing technical metadata
 * Object 1234582
   * has attachment 1234582001 (kärpänen.JPG) which will raise a PreservationError due to the non-ASCII filename, which is not supported by the DPRES service at the time of writing
 * Object 1234583

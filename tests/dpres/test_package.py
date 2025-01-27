@@ -42,19 +42,19 @@ class TestMuseumPackageDownload:
         Download the package to an existing directory containing attachments
         that don't belong to the museum object anymore
         """
-        (package_dir / "sip" / "attachments" / "100200").mkdir(parents=True)
-        (package_dir / "sip" / "attachments" / "100200" / "fake.jpg").touch()
-        (package_dir / "sip" / "attachments" / "100300").mkdir(parents=True)
-        (package_dir / "sip" / "attachments" / "100300" / "fake.jpg").touch()
+        (package_dir / "data" / "attachments" / "100200").mkdir(parents=True)
+        (package_dir / "data" / "attachments" / "100200" / "fake.jpg").touch()
+        (package_dir / "data" / "attachments" / "100300").mkdir(parents=True)
+        (package_dir / "data" / "attachments" / "100300" / "fake.jpg").touch()
 
         museum_object = load_museum_object(object_id="1234567")
         await museum_object.download_package(package_dir)
 
         # The old directories were removed when downloading the attachments
-        assert not (package_dir / "sip" / "attachments" / "100200").is_dir()
-        assert not (package_dir / "sip" / "attachments" / "100300").is_dir()
-        assert (package_dir / "sip" / "attachments" / "1234567001").is_dir()
-        assert (package_dir / "sip" / "attachments" / "1234567002").is_dir()
+        assert not (package_dir / "data" / "attachments" / "100200").is_dir()
+        assert not (package_dir / "data" / "attachments" / "100300").is_dir()
+        assert (package_dir / "data" / "attachments" / "1234567001").is_dir()
+        assert (package_dir / "data" / "attachments" / "1234567002").is_dir()
 
     @pytest.mark.asyncio
     async def test_download_package_leftover_collection_activities(
@@ -63,7 +63,7 @@ class TestMuseumPackageDownload:
         Download the package to an existing directory containing
         collection activites that don't belong to the museum object anymore
         """
-        collection_activity_dir = package_dir / "sip" / "collection_activities"
+        collection_activity_dir = package_dir / "data" / "collection_activities"
         (collection_activity_dir / "765432001").mkdir(parents=True)
         (collection_activity_dir / "10101010").mkdir(parents=True)
         (collection_activity_dir / "10101010" / "test.xml").touch()
@@ -109,12 +109,6 @@ class TestMuseumObjectPackageSIP:
         # Test that the SIP was created
         assert museum_package.sip_archive_path.is_file()
 
-        # Test that logs exist
-        for name in ("compile-mets", "compile-structmap", "compress",
-                     "create-mix", "import-object", "premis-event",
-                     "sign-mets"):
-            assert (museum_package.log_dir / f"{name}.log").is_file()
-
         # Workspace should be empty
         assert museum_package.workspace_dir.is_dir()
         assert not list(museum_package.workspace_dir.glob("*"))
@@ -127,12 +121,12 @@ class TestMuseumObjectPackageSIP:
 
         assert (tar_path / "signature.sig").is_file()
         assert (tar_path / "mets.xml").is_file()
-        assert (tar_path / "reports" / "lido.xml").is_file()
+        assert (tar_path / "data" / "reports" / "lido.xml").is_file()
         assert (
-            tar_path / "attachments" / "1234567001" / "kuva1.JPG"
+            tar_path / "data" / "attachments" / "1234567001" / "kuva1.JPG"
         ).is_file()
         assert (
-            tar_path / "attachments" / "1234567002" / "kuva2.JPG"
+            tar_path / "data" / "attachments" / "1234567002" / "kuva2.JPG"
         ).is_file()
 
         xml = lxml.etree.parse(str(tar_path / "mets.xml"))
@@ -194,12 +188,12 @@ class TestMuseumObjectPackageSIP:
 
         tar_path = extract_tar(museum_package.sip_archive_path)
 
-        # Ensure the TAR was extracted corrctly
+        # Ensure the TAR was extracted correctly
         assert (
-            tar_path / "attachments" / "1234569001" / "test.zip" / "kuva1.JPG"
+            tar_path / "data" / "attachments" / "1234569001" / "test.zip" / "kuva1.JPG"
         ).is_file()
         assert (
-            tar_path / "attachments" / "1234569001" / "test.zip" / "kuva2.JPG"
+            tar_path / "data" / "attachments" / "1234569001" / "test.zip" / "kuva2.JPG"
         ).is_file()
 
         xml = lxml.etree.parse(str(tar_path / "mets.xml"))
@@ -236,11 +230,11 @@ class TestMuseumObjectPackageSIP:
 
         # Ensure the TAR was extracted corrctly
         assert (
-            tar_path / "collection_activities" / "765432001"
+            tar_path / "data" / "collection_activities" / "765432001"
             / "CollectionActivity.xml"
         ).is_file()
         assert (
-            tar_path / "collection_activities" / "765432002"
+            tar_path / "data" / "collection_activities" / "765432002"
             / "CollectionActivity.xml"
         ).is_file()
 
