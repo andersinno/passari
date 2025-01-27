@@ -1,0 +1,2 @@
+git+https://github.com/Digital-Preservation-Finland/dpres-mets-builder.git
+git+https://github.com/Digital-Preservation-Finland/dpres-siptools-ng.git

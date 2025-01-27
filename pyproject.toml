@@ -26,6 +26,8 @@ dependencies = [
     "python-dateutil",
     "paramiko",
     "filelock",
+    "dpres-mets-builder",
+    "dpres-siptools-ng",
 ]
 
 [project.optional-dependencies]
