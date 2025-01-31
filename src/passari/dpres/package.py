@@ -104,7 +104,7 @@ class MuseumObjectPackage:
         self.sip_agent_md = DigitalProvenanceAgentMetadata(
             name="passari",
             agent_type="software",
-            version="0.0.0"
+            version="1.2.0"
         )
 
     @classmethod
