@@ -5,9 +5,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [1.2] - 2024-01-22
+## [1.2] - 2025-03-06
 ### Changed
  - Migrate from dpres-siptools to dpres-siptools-ng
+ - Change license to LPGLv3
+ - Improve speed of MuseumPlus fetching by increasing batch size
+ - Get rid of some deprecation warnings
+ - Make compatible with Python 3.12
+ - Switch from setup.py to pyproject.toml for packaging
 
 ### Removed
  - Raise PreservationError for MPO/JPEG files.
@@ -29,3 +34,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - First release.
 
 [1.1]: https://github.com/finnish-heritage-agency/passari/compare/1.0...1.1
+[1.2]: https://github.com/finnish-heritage-agency/passari/compare/1.1...1.2
