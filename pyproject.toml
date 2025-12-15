@@ -2,6 +2,9 @@
 requires = ["setuptools>=64", "wheel", "setuptools_scm>=8"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools_scm]
+fallback_version = "1.3"
+
 [project]
 name = "passari"
 dynamic = ["version"]
@@ -48,9 +51,6 @@ download-object = "passari.scripts.download_object:cli"
 create-sip = "passari.scripts.create_sip:cli"
 submit-sip = "passari.scripts.submit_sip:cli"
 confirm-sip = "passari.scripts.confirm_sip:cli"
-
-[tool.setuptools_scm]
-fallback_version = "0.0.0"
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
