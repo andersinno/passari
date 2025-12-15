@@ -35,7 +35,7 @@ from passari.museumplus.db import (MuseumAttachment, MuseumCollectionActivity,
                                    MuseumObject)
 from passari.utils import gather_or_raise_first, retrieve_cached_xml
 
-IMAGE_FORMATS = set(["gif", "tif", "tiff", "jpg", "jpeg"])
+IMAGE_FORMATS = set(["gif", "tif", "tiff", "jpg", "jpeg", "dng"])
 DOCUMENT_FORMATS = set([
     "pdf",  # TODO: PDF is defined as both transmission (if not PDF/A)
             # and storage (if PDF/A) capable. Should we check for PDF/A
