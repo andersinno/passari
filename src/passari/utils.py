@@ -2,8 +2,10 @@ import asyncio
 import contextlib
 import datetime
 import hashlib
+import time
 from concurrent.futures import FIRST_EXCEPTION, ALL_COMPLETED
 
+import aiohttp
 import dateutil.parser
 import lxml.etree
 from click.types import ParamType
@@ -26,19 +28,48 @@ async def retrieve_xml(session, url: str):
     return lxml.etree.fromstring(result)
 
 
-async def post_xml(session, url: str, data: dict):
+async def post_xml(session: aiohttp.ClientSession, url: str, data: bytes):
     """
     Retrieve an XML document from the given URL using a POST request
     and return the XML document's root node
     """
+    #data_xml = lxml.etree.fromstring(data)
+    #print(f"Doing POST to URL {url} with data:\n{lxml.etree.tostring(data_xml, pretty_print=True).decode()}")
+    print("Doing post")
+    t0 = time.time()
     response = await session.post(
         url, headers={"Content-Type": "application/xml"},
         data=data
     )
+    print(f"Got status response ({response.status} {response.reason})")
+    t1 = time.time()
     response.raise_for_status()
+    print("reading result")
     result = await response.read()
+    t2 = time.time()
+    total_time = t2 - t0
+    request_time = t1 - t0
+    response_time = t2 - t1
+    request_size = len(data)
+    response_size = len(result)
+    request_speed = request_size / request_time
+    response_speed = response_size / response_time
+    print(f"Got data: "
+          f"LEN: {response_size/1000.0:.3f} kB | "
+          f"Request speed: {request_speed/1000:.3f} kB/s | "
+          f"Response speed: {response_speed/1000:.3f} kB/s | "
+          f"Total time: {total_time:.3f} s")
+    #print(f"result len: {len(result)}")
+    try:
+        parsed = lxml.etree.fromstring(result)
+    except Exception:
+        #if len(result) < 50000:
+        #    print(result.decode().replace("><", ">\n<"))
+        raise
 
-    return lxml.etree.fromstring(result)
+    #print(lxml.etree.tostring(parsed, pretty_print=True).decode())
+    
+    return parsed
 
 
 async def retrieve_cached_xml(session, url: str, path):
