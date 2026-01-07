@@ -1,5 +1,8 @@
+import asyncio
 import datetime
+import os
 
+import aiohttp
 import dateutil.parser
 import lxml.etree as ET
 
@@ -7,6 +10,9 @@ from passari.config import CONFIG, MUSEUMPLUS_URL
 from passari.logger import logger
 from passari.museumplus.settings import ZETCOM_NS, ZETCOM_SEARCH_NS
 from passari.utils import get_xml_hash, post_xml
+
+DEFAULT_CHUNK_SIZE: int = int(os.getenv("PASSARI_MUSEUMPLUS_CHUNK_SIZE") or 0) or 500
+DEFAULT_CONCURRENCY = int(os.getenv("PASSARI_MUSEUMPLUS_CONCURRENCY") or 0) or 3
 
 # Search template to retrieve objects in an ascending order from oldest to
 # newest.
@@ -236,8 +242,14 @@ class MultimediaSearchResponse(MuseumSearchResponse):
 
 
 async def _iterate_search(
-        session, response_cls, module_name: str, offset: int = 0,
-        limit: int = 50, modify_date_gte=None):
+    session: aiohttp.ClientSession,
+    response_cls,
+    module_name: str,
+    offset: int = 0,
+    chunk_size: int | None = None,
+    modify_date_gte=None,
+    concurrency: int = DEFAULT_CONCURRENCY,
+):
     """
     Return an async iterator that can be used to iterate given amount of
     MuseumPlus modules of the given type
@@ -255,20 +267,24 @@ async def _iterate_search(
     """
     result_count = 0
 
+    limit: int = chunk_size or DEFAULT_CHUNK_SIZE
+    search_tasks: dict[int, asyncio.Task] = {}
+
     while True:
-        # Every request for 500 search results takes around 7 seconds
-        # This means that a database with around 868,000 objects takes around
-        # 3.5 hours to crawl, assuming no other overhead
-        search_request = format_search_request(
-            module_name=module_name, offset=offset, limit=limit,
-            modify_date_gte=modify_date_gte
-        )
-        search_result = await post_xml(
-            session,
-            url=f"{MUSEUMPLUS_URL}/module/{module_name}/search",
-            data=search_request
-        )
-        search_result = response_cls(search_result)
+        for a_offset in range(offset, offset + concurrency * limit, limit):
+            if a_offset not in search_tasks:
+                search_tasks[a_offset] = asyncio.create_task(
+                    _do_search_query(
+                        session=session,
+                        module_name=module_name,
+                        offset=a_offset,
+                        limit=limit,
+                        modified_after=modify_date_gte,
+                    )
+                )
+
+        search_result_xml = await search_tasks.pop(offset)
+        search_result = response_cls(search_result_xml)
         results = search_result.results
 
         if not results:
@@ -282,8 +298,32 @@ async def _iterate_search(
         offset += limit
 
 
+async def _do_search_query(
+    session: aiohttp.ClientSession,
+    module_name: str,
+    offset: int,
+    limit: int,
+    modified_after=None,
+):
+    search_request = format_search_request(
+        module_name=module_name,
+        offset=offset,
+        limit=limit,
+        modify_date_gte=modified_after,
+    )
+    return await post_xml(
+        session,
+        url=f"{MUSEUMPLUS_URL}/module/{module_name}/search",
+        data=search_request,
+    )
+
+
 async def iterate_multimedia(
-        session, offset: int = 0, limit: int = 50, modify_date_gte=None):
+    session: aiohttp.ClientSession,
+    offset: int = 0,
+    chunk_size: int | None = None,
+    modify_date_gte=None,
+):
     """
     Iterate all the Multimedia modules in the MuseumPlus database starting
     from the given offset
@@ -300,15 +340,19 @@ async def iterate_multimedia(
         module_name="Multimedia",
         session=session,
         offset=offset,
-        limit=limit,
-        modify_date_gte=modify_date_gte
+        chunk_size=chunk_size,
+        modify_date_gte=modify_date_gte,
     )
     async for entry in iterator:
         yield entry
 
 
 async def iterate_objects(
-        session, offset: int = 0, limit: int = 500, modify_date_gte=None):
+    session: aiohttp.ClientSession,
+    offset: int = 0,
+    chunk_size: int | None = None,
+    modify_date_gte=None,
+):
     """
     Iterate all the Object modules in the MuseumPlus database starting from
     the given offset
@@ -325,8 +369,8 @@ async def iterate_objects(
         module_name="Object",
         session=session,
         offset=offset,
-        limit=limit,
-        modify_date_gte=modify_date_gte
+        chunk_size=chunk_size,
+        modify_date_gte=modify_date_gte,
     )
     async for entry in iterator:
         yield entry
