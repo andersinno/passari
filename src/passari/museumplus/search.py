@@ -274,7 +274,7 @@ async def _iterate_search(
         for a_offset in range(offset, offset + concurrency * limit, limit):
             if a_offset not in search_tasks:
                 search_tasks[a_offset] = asyncio.create_task(
-                    _do_search_query(
+                    _do_search_query_and_skip_errors(
                         session=session,
                         module_name=module_name,
                         offset=a_offset,
@@ -283,9 +283,14 @@ async def _iterate_search(
                     )
                 )
 
-        search_result_xml = await search_tasks.pop(offset)
-        search_result = response_cls(search_result_xml)
-        results = search_result.results
+        search_result_xmls = await search_tasks.pop(offset)
+        results = []
+        for search_result_xml in search_result_xmls:
+            if search_result_xml is None:
+                results.append(None)
+            else:
+                search_result = response_cls(search_result_xml)
+                results.extend(search_result.results)
 
         if not results:
             logger.info("Iterated all %d results", result_count)
@@ -296,6 +301,59 @@ async def _iterate_search(
             yield result
 
         offset += limit
+
+
+async def _do_search_query_and_skip_errors(
+    session: aiohttp.ClientSession,
+    module_name: str,
+    offset: int,
+    limit: int,
+    modified_after=None,
+):
+    if limit <= 0:
+        return []
+    try:
+        return [
+            await _do_search_query(session, module_name, offset, limit, modified_after)
+        ]
+    except RuntimeError as error:
+        if str(error) == "Session is closed":
+            # This is a normal case that happens when the data consumer
+            # (caller of _iterate_search) stops consuming the data and
+            # closes the session before all launched searches are done
+            return [None] * limit
+        raise  # Shouldn't normally happen
+    except Exception as error:
+        # At least two known error types that should be handled here:
+        # MuseumPlus returning code 500 (INTERNAL_SERVER_ERROR) or XML
+        # parsing errors caused by MuseumPlus returning incomplete XML.
+        assert limit >= 1
+        if limit == 1:
+            logger.error(
+                "MuseumPlus Search failed for %s at offset %s (modified_after: %s): %s",
+                module_name,
+                offset,
+                modified_after,
+                error,
+            )
+            return [None]
+        elif limit >= 2:
+            half_limit = limit // 2
+            half1 = await _do_search_query_and_skip_errors(
+                session,
+                module_name,
+                offset,
+                half_limit,
+                modified_after,
+            )
+            half2 = await _do_search_query_and_skip_errors(
+                session,
+                module_name,
+                offset + half_limit,
+                limit - half_limit,
+                modified_after,
+            )
+            return half1 + half2
 
 
 async def _do_search_query(
