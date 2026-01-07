@@ -26,6 +26,34 @@ SEARCH_TEMPLATE = """
   </modules>
 </application>"""[1:]  # Skip the first newline to make XML valid
 
+SEARCH_TEMPLATE_NEW = """
+<?xml version="1.0" encoding="UTF-8"?>
+<application xmlns="http://www.zetcom.com/ria/ws/module/search" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.zetcom.com/ria/ws/module/search http://docs.zetcom.com/ws/module/search/search_1_4.xsd">
+  <modules>
+    <module name="{module_name}">
+      <search limit="{limit}" offset="{offset}">
+        <select>
+          <field fieldPath="__id"/>
+          <field fieldPath="__lastModified"/>
+          <field fieldPath="__created"/>
+          <field fieldPath="ObjObjectVrt"/>
+          <field fieldPath="ObjMultimediaRef"/>
+          <field fieldPath="ObjMultimediaRef.moduleReferenceItem"/>
+          <field fieldPath="MulOriginalFileTxt"/>
+          <field fieldPath="MulObjectRef"/>
+          <field fieldPath="MulObjectRef.moduleReferenceItem"/>
+          <field fieldPath="ObjCollectionActivityRef"/>
+          <field fieldPath="ObjCollectionActivityRef.moduleReferenceItem"/>
+        </select>
+        <sort>
+          <field fieldPath="__id" direction="Ascending"/>
+        </sort>
+      </search>
+    </module>
+  </modules>
+</application>"""[1:]  # Skip the first newline to make XML valid
+
+#SEARCH_TEMPLATE = SEARCH_TEMPLATE_NEW
 
 def format_search_request(
         module_name, limit, offset, modify_date_gte=None) -> bytes:
@@ -288,14 +316,16 @@ async def _iterate_search(
                     launched_searches[launch_offset] = post_xml(
                         session,
                         url=f"{MUSEUMPLUS_URL}/module/{module_name}/search",
-                        data=search_request
+                        data=search_request,
+                        offset=launch_offset,
+                        limit=limit,
                     )
                 print(f"Waiting results for offsets {offsets}")
                 results = await asyncio.gather(*launched_searches.values())
                 search_results = dict(zip(offsets, results))
                 search_result = search_results[offset]
         except Exception:
-            #raise
+            raise
             print("SEARCH FAILED")
             if not skipping_error_replies:
                 skipping_error_replies = True

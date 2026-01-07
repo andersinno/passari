@@ -28,7 +28,7 @@ async def retrieve_xml(session, url: str):
     return lxml.etree.fromstring(result)
 
 
-async def post_xml(session: aiohttp.ClientSession, url: str, data: bytes):
+async def post_xml(session: aiohttp.ClientSession, url: str, data: bytes, offset: int = 0, limit: int = 0):
     """
     Retrieve an XML document from the given URL using a POST request
     and return the XML document's root node
@@ -54,6 +54,13 @@ async def post_xml(session: aiohttp.ClientSession, url: str, data: bytes):
     response_size = len(result)
     request_speed = request_size / request_time
     response_speed = response_size / response_time
+
+    result_xml = lxml.etree.fromstring(result)
+    result_pretty = lxml.etree.tostring(result_xml, pretty_print=True)
+    with open(f"/tmp/result_L{limit:03d}_{offset}.xml", "wb") as f:
+        f.write(result_pretty)
+        print(f"Result written to {f.name}")
+
     print(f"Got data: "
           f"LEN: {response_size/1000.0:.3f} kB | "
           f"Request speed: {request_speed/1000:.3f} kB/s | "
