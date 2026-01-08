@@ -292,6 +292,15 @@ async def _iterate_search(
                 search_result = response_cls(search_result_xml)
                 results.extend(search_result.results)
 
+        ids = [f"{x['id']!s:>8}" for x in results if x]
+        logger.info(
+            "Got result for offset %d with ids %s-%s (count: %d)",
+            offset,
+            min(ids).strip() if ids else "",
+            max(ids).strip() if ids else "",
+            len(ids),
+        )
+
         if not results:
             logger.info("Iterated all %d results", result_count)
             break
@@ -338,6 +347,7 @@ async def _do_search_query_and_skip_errors(
             )
             return [None]
         elif limit >= 2:
+            logger.debug("Failure for offset=%d limit=%d. Splitting...", offset, limit)
             half_limit = limit // 2
             half1 = await _do_search_query_and_skip_errors(
                 session,
@@ -363,6 +373,13 @@ async def _do_search_query(
     limit: int,
     modified_after=None,
 ):
+    logger.debug(
+        "Posting search query for %s: modified_after=%s offset=%d limit=%d",
+        module_name,
+        modified_after,
+        offset,
+        limit,
+    )
     search_request = format_search_request(
         module_name=module_name,
         offset=offset,
