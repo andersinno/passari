@@ -1,5 +1,8 @@
+import asyncio
 import datetime
+import os
 
+import aiohttp
 import dateutil.parser
 import lxml.etree as ET
 
@@ -7,6 +10,9 @@ from passari.config import CONFIG, MUSEUMPLUS_URL
 from passari.logger import logger
 from passari.museumplus.settings import ZETCOM_NS, ZETCOM_SEARCH_NS
 from passari.utils import get_xml_hash, post_xml
+
+DEFAULT_CHUNK_SIZE: int = int(os.getenv("PASSARI_MUSEUMPLUS_CHUNK_SIZE") or 0) or 500
+DEFAULT_CONCURRENCY = int(os.getenv("PASSARI_MUSEUMPLUS_CONCURRENCY") or 0) or 3
 
 # Search template to retrieve objects in an ascending order from oldest to
 # newest.
@@ -236,8 +242,14 @@ class MultimediaSearchResponse(MuseumSearchResponse):
 
 
 async def _iterate_search(
-        session, response_cls, module_name: str, offset: int = 0,
-        limit: int = 50, modify_date_gte=None):
+    session: aiohttp.ClientSession,
+    response_cls,
+    module_name: str,
+    offset: int = 0,
+    chunk_size: int | None = None,
+    modify_date_gte=None,
+    concurrency: int = DEFAULT_CONCURRENCY,
+):
     """
     Return an async iterator that can be used to iterate given amount of
     MuseumPlus modules of the given type
@@ -255,21 +267,39 @@ async def _iterate_search(
     """
     result_count = 0
 
+    limit: int = chunk_size or DEFAULT_CHUNK_SIZE
+    search_tasks: dict[int, asyncio.Task] = {}
+
     while True:
-        # Every request for 500 search results takes around 7 seconds
-        # This means that a database with around 868,000 objects takes around
-        # 3.5 hours to crawl, assuming no other overhead
-        search_request = format_search_request(
-            module_name=module_name, offset=offset, limit=limit,
-            modify_date_gte=modify_date_gte
+        for a_offset in range(offset, offset + concurrency * limit, limit):
+            if a_offset not in search_tasks:
+                search_tasks[a_offset] = asyncio.create_task(
+                    _do_search_query_and_skip_errors(
+                        session=session,
+                        module_name=module_name,
+                        offset=a_offset,
+                        limit=limit,
+                        modified_after=modify_date_gte,
+                    )
+                )
+
+        search_result_xmls = await search_tasks.pop(offset)
+        results = []
+        for search_result_xml in search_result_xmls:
+            if search_result_xml is None:
+                results.append(None)
+            else:
+                search_result = response_cls(search_result_xml)
+                results.extend(search_result.results)
+
+        ids = [f"{x['id']!s:>8}" for x in results if x]
+        logger.info(
+            "Got result for offset %d with ids %s-%s (count: %d)",
+            offset,
+            min(ids).strip() if ids else "",
+            max(ids).strip() if ids else "",
+            len(ids),
         )
-        search_result = await post_xml(
-            session,
-            url=f"{MUSEUMPLUS_URL}/module/{module_name}/search",
-            data=search_request
-        )
-        search_result = response_cls(search_result)
-        results = search_result.results
 
         if not results:
             logger.info("Iterated all %d results", result_count)
@@ -282,8 +312,93 @@ async def _iterate_search(
         offset += limit
 
 
+async def _do_search_query_and_skip_errors(
+    session: aiohttp.ClientSession,
+    module_name: str,
+    offset: int,
+    limit: int,
+    modified_after=None,
+):
+    if limit <= 0:
+        return []
+    try:
+        return [
+            await _do_search_query(session, module_name, offset, limit, modified_after)
+        ]
+    except RuntimeError as error:
+        if str(error) == "Session is closed":
+            # This is a normal case that happens when the data consumer
+            # (caller of _iterate_search) stops consuming the data and
+            # closes the session before all launched searches are done
+            return [None] * limit
+        raise  # Shouldn't normally happen
+    except Exception as error:
+        # At least two known error types that should be handled here:
+        # MuseumPlus returning code 500 (INTERNAL_SERVER_ERROR) or XML
+        # parsing errors caused by MuseumPlus returning incomplete XML.
+        assert limit >= 1
+        if limit == 1:
+            logger.error(
+                "MuseumPlus Search failed for %s at offset %s (modified_after: %s): %s",
+                module_name,
+                offset,
+                modified_after,
+                error,
+            )
+            return [None]
+        elif limit >= 2:
+            logger.debug("Failure for offset=%d limit=%d. Splitting...", offset, limit)
+            half_limit = limit // 2
+            half1 = await _do_search_query_and_skip_errors(
+                session,
+                module_name,
+                offset,
+                half_limit,
+                modified_after,
+            )
+            half2 = await _do_search_query_and_skip_errors(
+                session,
+                module_name,
+                offset + half_limit,
+                limit - half_limit,
+                modified_after,
+            )
+            return half1 + half2
+
+
+async def _do_search_query(
+    session: aiohttp.ClientSession,
+    module_name: str,
+    offset: int,
+    limit: int,
+    modified_after=None,
+):
+    logger.debug(
+        "Posting search query for %s: modified_after=%s offset=%d limit=%d",
+        module_name,
+        modified_after,
+        offset,
+        limit,
+    )
+    search_request = format_search_request(
+        module_name=module_name,
+        offset=offset,
+        limit=limit,
+        modify_date_gte=modified_after,
+    )
+    return await post_xml(
+        session,
+        url=f"{MUSEUMPLUS_URL}/module/{module_name}/search",
+        data=search_request,
+    )
+
+
 async def iterate_multimedia(
-        session, offset: int = 0, limit: int = 50, modify_date_gte=None):
+    session: aiohttp.ClientSession,
+    offset: int = 0,
+    chunk_size: int | None = None,
+    modify_date_gte=None,
+):
     """
     Iterate all the Multimedia modules in the MuseumPlus database starting
     from the given offset
@@ -300,15 +415,19 @@ async def iterate_multimedia(
         module_name="Multimedia",
         session=session,
         offset=offset,
-        limit=limit,
-        modify_date_gte=modify_date_gte
+        chunk_size=chunk_size,
+        modify_date_gte=modify_date_gte,
     )
     async for entry in iterator:
         yield entry
 
 
 async def iterate_objects(
-        session, offset: int = 0, limit: int = 500, modify_date_gte=None):
+    session: aiohttp.ClientSession,
+    offset: int = 0,
+    chunk_size: int | None = None,
+    modify_date_gte=None,
+):
     """
     Iterate all the Object modules in the MuseumPlus database starting from
     the given offset
@@ -325,8 +444,8 @@ async def iterate_objects(
         module_name="Object",
         session=session,
         offset=offset,
-        limit=limit,
-        modify_date_gte=modify_date_gte
+        chunk_size=chunk_size,
+        modify_date_gte=modify_date_gte,
     )
     async for entry in iterator:
         yield entry

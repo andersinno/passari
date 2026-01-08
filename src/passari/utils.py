@@ -4,6 +4,7 @@ import datetime
 import hashlib
 from concurrent.futures import FIRST_EXCEPTION, ALL_COMPLETED
 
+import aiohttp
 import dateutil.parser
 import lxml.etree
 from click.types import ParamType
@@ -26,7 +27,7 @@ async def retrieve_xml(session, url: str):
     return lxml.etree.fromstring(result)
 
 
-async def post_xml(session, url: str, data: dict):
+async def post_xml(session: aiohttp.ClientSession, url: str, data: bytes):
     """
     Retrieve an XML document from the given URL using a POST request
     and return the XML document's root node
