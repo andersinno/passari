@@ -325,14 +325,13 @@ async def _do_search_query_and_skip_errors(
         return [
             await _do_search_query(session, module_name, offset, limit, modified_after)
         ]
-    except RuntimeError as error:
-        if str(error) == "Session is closed":
+    except Exception as error:
+        if session.closed:
             # This is a normal case that happens when the data consumer
             # (caller of _iterate_search) stops consuming the data and
             # closes the session before all launched searches are done
             return [None] * limit
-        raise  # Shouldn't normally happen
-    except Exception as error:
+
         # At least two known error types that should be handled here:
         # MuseumPlus returning code 500 (INTERNAL_SERVER_ERROR) or XML
         # parsing errors caused by MuseumPlus returning incomplete XML.
