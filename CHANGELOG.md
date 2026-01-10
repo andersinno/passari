@@ -5,7 +5,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [1.3]
+## [1.4] - 2026-01-10
+### Added
+ - museumplus.search: Concurrent execution of queries
+ - museumplus.search: Add more logging
+
+### Changed
+ - utils: Add type annotation for post_xml session parameter
+
+### Fixed
+ - museumplus.search: Skip errors instead of crashing
+
+## [1.3] - 2025-12-15
 ### Added
  - Add DNG as supported image format
 
@@ -39,3 +50,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [1.1]: https://github.com/finnish-heritage-agency/passari/compare/1.0...1.1
 [1.2]: https://github.com/finnish-heritage-agency/passari/compare/1.1...1.2
+[1.3]: https://github.com/finnish-heritage-agency/passari/compare/1.2...1.3
+[1.4]: https://github.com/finnish-heritage-agency/passari/compare/1.3...1.4
