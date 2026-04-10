@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import os
+from typing import Literal
 
 import aiohttp
 import dateutil.parser
@@ -249,6 +250,7 @@ async def _iterate_search(
     chunk_size: int | None = None,
     modify_date_gte=None,
     concurrency: int = DEFAULT_CONCURRENCY,
+    errors: Literal["raise", "ignore"] = "raise",
 ):
     """
     Return an async iterator that can be used to iterate given amount of
@@ -274,12 +276,13 @@ async def _iterate_search(
         for a_offset in range(offset, offset + concurrency * limit, limit):
             if a_offset not in search_tasks:
                 search_tasks[a_offset] = asyncio.create_task(
-                    _do_search_query_and_skip_errors(
+                    _do_search_query_and_handle_errors(
                         session=session,
                         module_name=module_name,
                         offset=a_offset,
                         limit=limit,
                         modified_after=modify_date_gte,
+                        errors=errors,
                     )
                 )
 
@@ -312,12 +315,13 @@ async def _iterate_search(
         offset += limit
 
 
-async def _do_search_query_and_skip_errors(
+async def _do_search_query_and_handle_errors(
     session: aiohttp.ClientSession,
     module_name: str,
     offset: int,
     limit: int,
-    modified_after=None,
+    modified_after: datetime.datetime | None = None,
+    errors: Literal["raise", "ignore"] = "raise",
 ):
     if limit <= 0:
         return []
@@ -344,23 +348,27 @@ async def _do_search_query_and_skip_errors(
                 modified_after,
                 error,
             )
-            return [None]
+            if errors == "ignore":
+                return [None]
+            raise
         elif limit >= 2:
             logger.debug("Failure for offset=%d limit=%d. Splitting...", offset, limit)
             half_limit = limit // 2
-            half1 = await _do_search_query_and_skip_errors(
+            half1 = await _do_search_query_and_handle_errors(
                 session,
                 module_name,
                 offset,
                 half_limit,
                 modified_after,
+                errors=errors,
             )
-            half2 = await _do_search_query_and_skip_errors(
+            half2 = await _do_search_query_and_handle_errors(
                 session,
                 module_name,
                 offset + half_limit,
                 limit - half_limit,
                 modified_after,
+                errors=errors,
             )
             return half1 + half2
 
