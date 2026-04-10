@@ -1,4 +1,3 @@
-import asyncio
 import datetime
 import os
 import shutil
@@ -208,7 +207,7 @@ class MuseumObjectPackage:
         etree = await retrieve_cached_xml(
             session=self.session,
             url=f"{MUSEUMPLUS_URL}/module/Multimedia/{item_id}",
-            path=attachment_dir / f"Multimedia.xml"
+            path=attachment_dir / "Multimedia.xml"
         )
         attachment = MuseumAttachment(etree)
 
@@ -321,7 +320,7 @@ class MuseumObjectPackage:
         a MuseumAttachment instance if it exists
         """
         attachment_xml_path = (
-            self.attachment_dir / str(item_id) / f"Multimedia.xml"
+            self.attachment_dir / str(item_id) / "Multimedia.xml"
         )
 
         try:
@@ -353,7 +352,7 @@ class MuseumObjectPackage:
         """
         col_activity_xml_path = (
             self.collection_activity_dir / str(item_id)
-            / f"CollectionActivity.xml"
+            / "CollectionActivity.xml"
         )
 
         try:
@@ -418,7 +417,7 @@ class MuseumObjectPackage:
         etree = await retrieve_cached_xml(
             session=self.session,
             url=f"{MUSEUMPLUS_URL}/module/CollectionActivity/{item_id}",
-            path=collection_activity_dir / f"CollectionActivity.xml"
+            path=collection_activity_dir / "CollectionActivity.xml"
         )
         return MuseumCollectionActivity(etree)
 
