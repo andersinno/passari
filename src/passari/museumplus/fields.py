@@ -1,6 +1,8 @@
 import datetime
 import json
+import re
 
+import aiohttp
 from lxml.etree import Element, fromstring, tostring
 
 from passari.config import CONFIG, MUSEUMPLUS_URL
@@ -47,8 +49,12 @@ UPDATE_FIELD_TEMPLATE = """
 
 
 async def set_object_field(
-        session, object_id: int, name: str, field_type: str,
-        value: str):
+        session: aiohttp.ClientSession,
+        object_id: int,
+        name: str,
+        field_type: str,
+        value: str,
+):
     """
     Set the value of a single Object field. Value will be created if the
     field does not exist already.
@@ -76,14 +82,46 @@ async def set_object_field(
     field_elem.append(value_elem)
     module_elem.append(field_elem)
 
+    url = f"{MUSEUMPLUS_URL}/module/Object/{object_id}/{name}"
     data = tostring(root, encoding="utf-8", xml_declaration=True)
 
     response = await session.put(
-        f"{MUSEUMPLUS_URL}/module/Object/{object_id}/{name}",
+        url,
         headers={"Content-Type": "application/xml"},
         data=data
     )
-    response.raise_for_status()
+
+    try:
+        resp_content = await response.read()
+    except Exception:
+        resp_content = b"ERROR READING RESPONSE"
+
+    try:
+        response.raise_for_status()
+    except Exception:
+        print()
+        print("FAILURE:")
+        print("response:", response)
+        print("Input URL:", url)
+        print("Input data:", bytes(data).decode("utf-8"))
+        print("Response body:")
+        print(response._body)
+        print("Response content:")
+        print(resp_content.decode("utf-8", errors="replace"))
+        print()
+        print()
+        raise
+
+    print()
+    print()
+    print("SUCCESS=============================================")
+    print("Input URL:", url)
+    print("Input data:", bytes(data).decode("utf-8"))
+    print("response:", response)
+    print("Response content:")
+    print(resp_content.decode("utf-8", errors="replace"))
+    print()
+    print()
 
     return True
 
